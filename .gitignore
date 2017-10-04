@@ -1,5 +1,6 @@
+client/public/client.js
 
-# Created by https://www.gitignore.io/api/node,elm
+# Created by https://www.gitignore.io/api/node,elm,vagrant
 
 ### Elm ###
 # elm-package generated files
@@ -68,4 +69,7 @@ typings/
 .env
 
 
-# End of https://www.gitignore.io/api/node,elm
+### Vagrant ###
+.vagrant/
+
+# End of https://www.gitignore.io/api/node,elm,vagrant

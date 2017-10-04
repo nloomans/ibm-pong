@@ -1,23 +1,16 @@
-
-
-process.env.DEBUG = process.env.DEBUG || 'credly-widget:*';
-
 const gulp = require('gulp');
-const sass = require('gulp-sass');
 const spawn = require('child_process').spawn;
 
 let node;
 
 const paths = {
   javascript: {
-    server: ['./bin/www', './app.js', './lib/**/*.js', './routes/**/*.js'],
-    client: ['./client/app/**/*.js', './client/app/**/*.jsx'],
+    server: ['./bin/www', './app.js', './lib/**/*.js', './routes/**/*.js', './api/**/*.js'],
   },
-  sass: ['./public/stylesheets/**/*.sass'],
 };
 
 function killNode() {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     if (node) {
       node.on('close', resolve);
       node.kill('SIGINT');
@@ -40,10 +33,4 @@ gulp.task('server', () => killNode().then(() => {
 
 gulp.task('server:watch', () => gulp.watch(paths.javascript.server, ['server']));
 
-gulp.task('sass', () => gulp.src('./public/stylesheets/**/*.sass')
-  .pipe(sass().on('error', sass.logError))
-  .pipe(gulp.dest('./public/stylesheets')));
-
-gulp.task('sass:watch', () => gulp.watch(paths.sass, ['sass']));
-
-gulp.task('default', ['sass', 'sass:watch', 'server', 'server:watch']);
+gulp.task('default', ['server', 'server:watch']);

@@ -3,7 +3,7 @@ const path = require('path');
 const BUILD_DIR = path.resolve(__dirname, 'client/public');
 const APP_DIR = path.resolve(__dirname, 'client/app');
 
-const config = {
+module.exports = {
   entry: `${APP_DIR}/index.js`,
   output: {
     path: BUILD_DIR,
@@ -19,5 +19,3 @@ const config = {
     ],
   },
 };
-
-module.exports = config;
