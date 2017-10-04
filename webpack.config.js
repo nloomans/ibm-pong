@@ -4,7 +4,7 @@ const BUILD_DIR = path.resolve(__dirname, 'client/public');
 const APP_DIR = path.resolve(__dirname, 'client/app');
 
 const config = {
-  entry: `${APP_DIR}/app.js`,
+  entry: `${APP_DIR}/index.js`,
   output: {
     path: BUILD_DIR,
     filename: 'client.js',
@@ -12,9 +12,9 @@ const config = {
   module: {
     loaders: [
       {
-        test: /\.js?/,
+        test: /\.elm$/,
         include: APP_DIR,
-        loader: ['babel-loader'],
+        loader: 'elm-webpack-loader?debug',
       },
     ],
   },
