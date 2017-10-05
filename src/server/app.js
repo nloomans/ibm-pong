@@ -6,9 +6,7 @@ const bodyParser = require('body-parser');
 
 const webpackMiddleware = require('webpack-dev-middleware');
 const webpack = require('webpack');
-const webpackConfig = require('./webpack.config.js');
-
-const api = require('./api/api');
+const webpackConfig = require('../../webpack.config.js');
 
 const app = express();
 
@@ -17,7 +15,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-app.use(express.static(path.join(__dirname, 'client/public')));
+app.use(express.static(path.join(__dirname, '../client/public')));
 
 if (process.env.DEV_WEBPACK) {
   app.use(webpackMiddleware(webpack(webpackConfig), {
@@ -27,8 +25,6 @@ if (process.env.DEV_WEBPACK) {
     },
   }));
 }
-
-app.use('/api', api);
 
 // catch 404 and forward to error handler
 app.use((req, res, next) => {

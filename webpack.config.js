@@ -1,7 +1,7 @@
 const path = require('path');
 
-const BUILD_DIR = path.resolve(__dirname, 'client/public');
-const APP_DIR = path.resolve(__dirname, 'client/app');
+const BUILD_DIR = path.resolve(__dirname, 'src/client/public');
+const APP_DIR = path.resolve(__dirname, 'src/client/app');
 
 module.exports = {
   entry: `${APP_DIR}/index.js`,

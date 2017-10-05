@@ -5,7 +5,7 @@ let node;
 
 const paths = {
   javascript: {
-    server: ['./bin/www', './app.js', './lib/**/*.js', './routes/**/*.js', './api/**/*.js'],
+    server: ['./src/server', './src/server/bin/www'],
   },
 };
 
@@ -23,7 +23,7 @@ function killNode() {
 gulp.task('server', () => killNode().then(() => {
   const env = Object.create(process.env);
   env.DEV_WEBPACK = 1;
-  node = spawn('node', ['./bin/www'], { stdio: 'inherit', env });
+  node = spawn('node', ['./src/server/bin/www'], { stdio: 'inherit', env });
   node.on('close', (code) => {
     if (code !== 0) {
       process.exit(code);
