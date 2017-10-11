@@ -1,9 +1,9 @@
 module Main exposing (..)
 
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (..)
-import WebSocket
+import Html exposing (Html, button, div, text, br)
+import Html.Attributes exposing (style)
+import Html.Events exposing (onClick)
+import Mouse exposing (..)
 
 
 main =
@@ -15,24 +15,17 @@ main =
         }
 
 
-echoServer : String
-echoServer =
-    "wss://echo.websocket.org"
-
-
 
 -- MODEL
 
 
 type alias Model =
-    { input : String
-    , messages : List String
-    }
+    { leftY : Int, rightY : Int, balX : Int, balY : Int }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model "" [], Cmd.none )
+    ( Model 0 0 30 30, Cmd.none )
 
 
 
@@ -40,31 +33,19 @@ init =
 
 
 type Msg
-    = Input String
-    | Send
-    | NewMessage String
+    = MouseMove Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Input newInput ->
-            ( { model | input = newInput }, Cmd.none )
-
-        Send ->
-            ( { model | input = "", messages = model.messages }, WebSocket.send echoServer model.input )
-
-        NewMessage str ->
-            ( { model | messages = str :: model.messages }, Cmd.none )
-
-
-
--- SUBSCRIPTIONS
+        MouseMove y ->
+            ( { model | leftY = y }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    WebSocket.listen echoServer NewMessage
+    Mouse.moves (\{ y } -> MouseMove y)
 
 
 
@@ -74,12 +55,45 @@ subscriptions model =
 view : Model -> Html Msg
 view model =
     div []
-        [ input [ onInput Input, value model.input ] []
-        , button [ onClick Send ] [ text "Send" ]
-        , div [] (List.map viewMessage (List.reverse model.messages))
+        [ text (toString model)
+        , viewBouncher Left model.leftY
+        , viewBouncher Right model.rightY
+        , div
+            [ style
+                [ ( "width", "20px" )
+                , ( "height", "20px" )
+                , ( "border-radius", "50%" )
+                , ( "background-color", "black" )
+                , ( "top", toString (model.balX) ++ "px" )
+                , ( "left", toString (model.balY) ++ "px" )
+                , ( "position", "absolute" )
+                ]
+            ]
+            []
         ]
 
 
-viewMessage : String -> Html msg
-viewMessage msg =
-    div [] [ text msg ]
+type Side
+    = Left
+    | Right
+
+
+viewBouncher : Side -> Int -> Html Msg
+viewBouncher side y =
+    div
+        [ style
+            [ ( "width", "20px" )
+            , ( "height", "100px" )
+            , if side == Left then
+                ( "background-color", "blue" )
+              else
+                ( "background-color", "red" )
+            , ( "top", toString (y - 50) ++ "px" )
+            , if side == Left then
+                ( "left", "0px" )
+              else
+                ( "right", "0px" )
+            , ( "position", "absolute" )
+            ]
+        ]
+        []

@@ -17,6 +17,8 @@ app.use(cookieParser());
 
 app.use(express.static(path.join(__dirname, '../client/public')));
 
+process.env.DEV_WEBPACK = 1;
+
 if (process.env.DEV_WEBPACK) {
   app.use(webpackMiddleware(webpack(webpackConfig), {
     publicPath: '/',
