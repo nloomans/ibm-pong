@@ -10,4 +10,9 @@ Vagrant.configure("2") do |config|
     apt-get update
     apt-get install -y nodejs yarn
   SHELL
+
+  config.vm.provision "shell", privileged: false, inline: <<-SHELL
+    yarn global add elm
+    echo 'export PATH="$PATH:$(yarn global bin)"' /home/vagrant/.bashrc
+  SHELL
 end
