@@ -1,9 +1,10 @@
 module Main exposing (..)
 
-import Html exposing (Html, button, div, text, br)
+import Html exposing (Html, br, button, div, text)
 import Html.Attributes exposing (style)
 import Html.Events exposing (onClick)
 import Mouse exposing (..)
+import WebSocket
 
 
 main =
@@ -34,18 +35,25 @@ init =
 
 type Msg
     = MouseMove Int
+    | NewMessage String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         MouseMove y ->
-            ( { model | leftY = y }, Cmd.none )
+            ( { model | leftY = y }, WebSocket.send "ws://localhost:8000" (toString y) )
+
+        NewMessage msg ->
+            ( model, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Mouse.moves (\{ y } -> MouseMove y)
+    Sub.batch
+        [ Mouse.moves (\{ y } -> MouseMove y)
+        , WebSocket.listen "ws://localhost:8000" NewMessage
+        ]
 
 
 
@@ -64,8 +72,8 @@ view model =
                 , ( "height", "20px" )
                 , ( "border-radius", "50%" )
                 , ( "background-color", "black" )
-                , ( "top", toString (model.balX) ++ "px" )
-                , ( "left", toString (model.balY) ++ "px" )
+                , ( "top", toString model.balX ++ "px" )
+                , ( "left", toString model.balY ++ "px" )
                 , ( "position", "absolute" )
                 ]
             ]
