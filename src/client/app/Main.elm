@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import Char
 import Html exposing (Html, br, button, div, text)
-import Html.Attributes exposing (style)
+import Html.Attributes exposing (style, tabindex)
 import Html.Events exposing (onClick)
 import Time exposing (Time, millisecond)
 import Mouse exposing (..)
@@ -95,26 +95,24 @@ decode string =
 
 
 type Msg
-    = MouseMove Int
-    | NewMessage String
+    = NewMessage String
     | Tick Time
+    | KeyUp Int
+    | KeyDown Int
 
 
--- onKeyDown : (Int -> msg) -> Attribute msg
--- onKeyDown tagger =
---   on "keydown" (Json.map tagger keyCode)
---
--- onKeyUp : (Int -> msg) -> Attribute msg
--- onKeyUp tagger =
---   on "keydown" (Json.map tagger keyCode)
+onKeyDown : (Int -> msg) -> Html.Attribute msg
+onKeyDown tagger =
+  Html.Events.on "keydown" (Json.map tagger Html.Events.keyCode)
+
+onKeyUp : (Int -> msg) -> Html.Attribute msg
+onKeyUp tagger =
+  Html.Events.on "keyup" (Json.map tagger Html.Events.keyCode)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        MouseMove y ->
-            ( { model | leftY = y }, WebSocket.send "ws://localhost:8000" (encode (BatUpdate y)) )
-
         NewMessage msg ->
             ( model, Cmd.none )
 
@@ -126,12 +124,22 @@ update msg model =
             , Cmd.none
             )
 
+        KeyUp msg ->
+            ( model , Cmd.none )
+
+        KeyDown msg ->
+            if msg == 38 then
+              ( {model | leftY = model.leftY - 30}, Cmd.none )
+            else if msg == 40 then
+              ( {model | leftY = model.leftY + 30}, Cmd.none )
+            else
+              ( model, Cmd.none )
+
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ Mouse.moves (\{ y } -> MouseMove y)
-        , WebSocket.listen "ws://localhost:8000" NewMessage
+        [ WebSocket.listen "ws://localhost:8000" NewMessage
         , Time.every (40 * millisecond) Tick
         ]
 
@@ -151,6 +159,9 @@ view model =
             , ( "align-items", "center" )
             , ( "justify-content", "center" )
             ]
+        , tabindex 0
+        , onKeyDown KeyDown
+        , onKeyUp KeyUp
         ]
         [ div
             [ style
