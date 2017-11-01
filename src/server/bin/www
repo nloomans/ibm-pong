@@ -67,6 +67,10 @@ const wsServer = new WebSocketServer({
   autoAcceptConnections: false,
 });
 
+function decode(string) {
+  return string.split('').map(char => char.charCodeAt(0));
+}
+
 wsServer.on('request', (request) => {
   const connection = request.accept(null, request.origin);
 
@@ -74,7 +78,7 @@ wsServer.on('request', (request) => {
 
   connection.on('message', (message) => {
     if (message.type === 'utf8') {
-      console.log(`Received Message: ${message.utf8Data}`);
+      console.log(`Received Message: [${decode(message.utf8Data)}]`);
       connection.sendUTF(message.utf8Data);
     } else if (message.type === 'binary') {
       console.log(`Received Binary Message of ${message.binaryData.length} bytes`);

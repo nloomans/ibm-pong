@@ -1,8 +1,8 @@
 module Main exposing (..)
 
+import Char
 import Html exposing (Html, br, button, div, text)
 import Html.Attributes exposing (style)
-import Html.Events exposing (onClick)
 import Mouse exposing (..)
 import WebSocket
 
@@ -29,6 +29,60 @@ init =
     ( Model 0 0 30 30, Cmd.none )
 
 
+type WSMsg
+    = BatUpdate Int
+    | Foo
+    | Bar
+    | Baz
+
+
+encode : WSMsg -> String
+encode wsMsg =
+    let
+        list =
+            case wsMsg of
+                Foo ->
+                    [ 101 ]
+
+                Bar ->
+                    [ 102 ]
+
+                Baz ->
+                    [ 103 ]
+
+                BatUpdate pos ->
+                    [ 201, pos ]
+    in
+    list
+        |> List.map Char.fromCode
+        |> String.fromList
+
+
+decode : String -> WSMsg
+decode string =
+    let
+        list =
+            string
+                |> String.toList
+                |> List.map Char.toCode
+    in
+    case list of
+        [ 101 ] ->
+            Foo
+
+        [ 102 ] ->
+            Bar
+
+        [ 103 ] ->
+            Baz
+
+        [ 201, pos ] ->
+            BatUpdate pos
+
+        _ ->
+            Debug.crash ("Invalid list " ++ toString list)
+
+
 
 -- UPDATE
 
@@ -42,7 +96,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         MouseMove y ->
-            ( { model | leftY = y }, WebSocket.send "ws://localhost:8000" (toString y) )
+            ( { model | leftY = y }, WebSocket.send "ws://localhost:8000" (encode (BatUpdate y)) )
 
         NewMessage msg ->
             ( model, Cmd.none )
