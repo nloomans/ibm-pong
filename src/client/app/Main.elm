@@ -33,7 +33,7 @@ type alias Model =
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model 0 0 30 30 (0.1 * tau) 3, Cmd.none )
+    ( Model 0 0 30 30 (0.1 * tau) 5, Cmd.none )
 
 
 type WSMsg
@@ -117,12 +117,29 @@ update msg model =
             ( model, Cmd.none )
 
         Tick _ ->
-            ( { model
-                | balX = model.balX + cos model.ballDir * model.ballSpeed
-                , balY = model.balY + sin model.ballDir * model.ballSpeed
-              }
-            , Cmd.none
-            )
+            if model.balX > 800-40 || model.balX < 20 then -- 20 for the ball and 20 for the bat
+                ( { model
+                    | ballDir = pi - model.ballDir
+                    , balX = model.balX + cos (pi - model.ballDir) * model.ballSpeed
+                    , balY = model.balY + sin (pi - model.ballDir) * model.ballSpeed
+                  }
+                , Cmd.none
+                )
+            else if model.balY > 450-20 || model.balY < 0 then
+                ( { model
+                    | ballDir = tau - model.ballDir
+                    , balX = model.balX + cos (tau - model.ballDir) * model.ballSpeed
+                    , balY = model.balY + sin (tau - model.ballDir) * model.ballSpeed
+                  }
+                , Cmd.none
+                )
+            else
+                ( { model
+                    | balX = model.balX + cos model.ballDir * model.ballSpeed
+                    , balY = model.balY + sin model.ballDir * model.ballSpeed
+                  }
+                , Cmd.none
+                )
 
         KeyUp msg ->
             ( model , Cmd.none )
