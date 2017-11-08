@@ -4,6 +4,7 @@ const app = require('../app');
 const debug = require('debug')('ibm-pong:server');
 const http = require('http');
 const WebSocketServer = require('websocket').server;
+const EventEmitter = require('events');
 
 function normalizePort(val) {
   const port = parseInt(val, 10);
@@ -71,10 +72,31 @@ function decode(string) {
   return string.split('').map(char => char.charCodeAt(0));
 }
 
+let state = {
+  games: [],
+  pendingGame: null,
+};
+
 wsServer.on('request', (request) => {
   const connection = request.accept(null, request.origin);
 
   console.log('Connection accepted.');
+
+  let gameIndex;
+
+  // New client connected
+  if (state.pendingGame) {
+    // Games are pending
+    gameIndex = state.pendingGame;
+    state.pendingGame = null;
+    state.games[gameIndex].emit('update');
+  } else {
+    // No games are pending
+    state.games.push(new EventEmitter());
+    state.pendingGame = state.games.length - 1;
+  }
+
+  console.log(gameIndex);
 
   connection.on('message', (message) => {
     if (message.type === 'utf8') {

@@ -27,13 +27,19 @@ main =
 -- MODEL
 
 
-type alias Model =
+type alias ActiveModel =
     { leftY : Int, rightY : Int, balX : Float, balY : Float, ballDir : Float, ballSpeed : Float }
+
+
+type Model
+    = Active ActiveModel
+    | Pending
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model 0 0 30 30 (0.1 * tau) 5, Cmd.none )
+    -- ( Active (ActiveModel 0 0 30 30 (0.1 * tau) 5), Cmd.none )
+    ( Pending, Cmd.none )
 
 
 type WSMsg
@@ -60,9 +66,9 @@ encode wsMsg =
                 BatUpdate pos ->
                     [ 201, pos ]
     in
-    list
-        |> List.map Char.fromCode
-        |> String.fromList
+        list
+            |> List.map Char.fromCode
+            |> String.fromList
 
 
 decode : String -> WSMsg
@@ -73,21 +79,21 @@ decode string =
                 |> String.toList
                 |> List.map Char.toCode
     in
-    case list of
-        [ 101 ] ->
-            Foo
+        case list of
+            [ 101 ] ->
+                Foo
 
-        [ 102 ] ->
-            Bar
+            [ 102 ] ->
+                Bar
 
-        [ 103 ] ->
-            Baz
+            [ 103 ] ->
+                Baz
 
-        [ 201, pos ] ->
-            BatUpdate pos
+            [ 201, pos ] ->
+                BatUpdate pos
 
-        _ ->
-            Debug.crash ("Invalid list " ++ toString list)
+            _ ->
+                Debug.crash ("Invalid list " ++ toString list)
 
 
 
@@ -103,54 +109,58 @@ type Msg
 
 onKeyDown : (Int -> msg) -> Html.Attribute msg
 onKeyDown tagger =
-  Html.Events.on "keydown" (Json.map tagger Html.Events.keyCode)
+    Html.Events.on "keydown" (Json.map tagger Html.Events.keyCode)
+
 
 onKeyUp : (Int -> msg) -> Html.Attribute msg
 onKeyUp tagger =
-  Html.Events.on "keyup" (Json.map tagger Html.Events.keyCode)
+    Html.Events.on "keyup" (Json.map tagger Html.Events.keyCode)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case msg of
-        NewMessage msg ->
+    case model of
+        Active activeModel ->
+            case msg of
+                NewMessage msg ->
+                    ( Active activeModel, Cmd.none )
+
+                Tick _ ->
+                    if activeModel.balX > 800 - 2 * 20 || activeModel.balX < 20 then
+                        -- 20 for the ball and 20 for the bat
+                        ( Active (updateBallPos { activeModel | ballDir = pi - activeModel.ballDir })
+                        , Cmd.none
+                        )
+                    else if activeModel.balY > 450 - 20 || activeModel.balY < 0 then
+                        ( Active (updateBallPos { activeModel | ballDir = tau - activeModel.ballDir })
+                        , Cmd.none
+                        )
+                    else
+                        ( Active (updateBallPos activeModel)
+                        , Cmd.none
+                        )
+
+                KeyUp msg ->
+                    ( Active activeModel, Cmd.none )
+
+                KeyDown msg ->
+                    if msg == 38 then
+                        ( Active { activeModel | leftY = activeModel.leftY - 30 }, WebSocket.send "ws://localhost:8000" (encode (BatUpdate activeModel.leftY)) )
+                    else if msg == 40 then
+                        ( Active { activeModel | leftY = activeModel.leftY + 30 }, WebSocket.send "ws://localhost:8000" (encode (BatUpdate activeModel.leftY)) )
+                    else
+                        ( Active activeModel, Cmd.none )
+
+        Pending ->
             ( model, Cmd.none )
 
-        Tick _ ->
-            if model.balX > 800-40 || model.balX < 20 then -- 20 for the ball and 20 for the bat
-                ( { model
-                    | ballDir = pi - model.ballDir
-                    , balX = model.balX + cos (pi - model.ballDir) * model.ballSpeed
-                    , balY = model.balY + sin (pi - model.ballDir) * model.ballSpeed
-                  }
-                , Cmd.none
-                )
-            else if model.balY > 450-20 || model.balY < 0 then
-                ( { model
-                    | ballDir = tau - model.ballDir
-                    , balX = model.balX + cos (tau - model.ballDir) * model.ballSpeed
-                    , balY = model.balY + sin (tau - model.ballDir) * model.ballSpeed
-                  }
-                , Cmd.none
-                )
-            else
-                ( { model
-                    | balX = model.balX + cos model.ballDir * model.ballSpeed
-                    , balY = model.balY + sin model.ballDir * model.ballSpeed
-                  }
-                , Cmd.none
-                )
 
-        KeyUp msg ->
-            ( model , Cmd.none )
-
-        KeyDown msg ->
-            if msg == 38 then
-              ( {model | leftY = model.leftY - 30}, Cmd.none )
-            else if msg == 40 then
-              ( {model | leftY = model.leftY + 30}, Cmd.none )
-            else
-              ( model, Cmd.none )
+updateBallPos : ActiveModel -> ActiveModel
+updateBallPos activeModel =
+    { activeModel
+        | balX = activeModel.balX + cos activeModel.ballDir * activeModel.ballSpeed
+        , balY = activeModel.balY + sin activeModel.ballDir * activeModel.ballSpeed
+    }
 
 
 subscriptions : Model -> Sub Msg
@@ -189,22 +199,28 @@ view model =
                 , ( "overflow", "hidden" )
                 ]
             ]
-            [ text (toString model)
-            , viewBouncher Left model.leftY
-            , viewBouncher Right model.rightY
-            , div
-                [ style
-                    [ ( "width", "20px" )
-                    , ( "height", "20px" )
-                    , ( "border-radius", "50%" )
-                    , ( "background-color", "black" )
-                    , ( "top", toString model.balY ++ "px" )
-                    , ( "left", toString model.balX ++ "px" )
-                    , ( "position", "absolute" )
+            (case model of
+                Active activeModel ->
+                    [ text (toString activeModel)
+                    , viewBouncher Left activeModel.leftY
+                    , viewBouncher Right activeModel.rightY
+                    , div
+                        [ style
+                            [ ( "width", "20px" )
+                            , ( "height", "20px" )
+                            , ( "border-radius", "50%" )
+                            , ( "background-color", "black" )
+                            , ( "top", toString activeModel.balY ++ "px" )
+                            , ( "left", toString activeModel.balX ++ "px" )
+                            , ( "position", "absolute" )
+                            ]
+                        ]
+                        []
                     ]
-                ]
-                []
-            ]
+
+                Pending ->
+                    [ text "Waiting for another client to connect..." ]
+            )
         ]
 
 
