@@ -26,9 +26,8 @@ main =
 
 -- MODEL
 
-
 type alias ActiveModel =
-    { leftY : Int, rightY : Int, balX : Float, balY : Float, ballDir : Float, ballSpeed : Float }
+    { leftY : Int, rightY : Int, ballX : Float, ballY : Float, ballDir: Float, ballSpeed: Float }
 
 
 type Model
@@ -45,6 +44,7 @@ init =
 type WSMsg
     = BatUpdate Int
     | GameStart
+    | GameStop
 
 
 encode : WSMsg -> String
@@ -54,6 +54,9 @@ encode wsMsg =
             case wsMsg of
                 GameStart ->
                     [ 101 ]
+
+                GameStop ->
+                    [ 102 ]
 
                 BatUpdate pos ->
                     [ 201, pos ]
@@ -74,6 +77,9 @@ decode string =
         case list of
             [ 101 ] ->
                 GameStart
+
+            [ 102 ] ->
+                GameStop
 
             _ ->
                 Debug.crash ("Invalid list " ++ toString list)
@@ -108,17 +114,25 @@ update msg model =
                 msg =
                     decode encodedMsg
             in
-                ( Active (ActiveModel 0 0 30 30 (0.1 * tau) 5), Cmd.none )
+                case msg of
+                    GameStart ->
+                        ( Active (ActiveModel 0 0 30 30 (0.1 * tau) 5), Cmd.none )
+
+                    GameStop ->
+                        ( Pending, Cmd.none )
+
+                    BatUpdate _ ->
+                        ( model, Cmd.none )
 
         Tick _ ->
             case model of
                 Active activeModel ->
-                    if activeModel.balX > 800 - 2 * 20 || activeModel.balX < 20 then
+                    if activeModel.ballX > 800 - 2 * 20 || activeModel.ballX < 20 then
                         -- 20 for the ball and 20 for the bat
                         ( Active (updateBallPos { activeModel | ballDir = pi - activeModel.ballDir })
                         , Cmd.none
                         )
-                    else if activeModel.balY > 450 - 20 || activeModel.balY < 0 then
+                    else if activeModel.ballY > 450 - 20 || activeModel.ballY < 0 then
                         ( Active (updateBallPos { activeModel | ballDir = tau - activeModel.ballDir })
                         , Cmd.none
                         )
@@ -150,8 +164,8 @@ update msg model =
 updateBallPos : ActiveModel -> ActiveModel
 updateBallPos activeModel =
     { activeModel
-        | balX = activeModel.balX + cos activeModel.ballDir * activeModel.ballSpeed
-        , balY = activeModel.balY + sin activeModel.ballDir * activeModel.ballSpeed
+        | ballX = activeModel.ballX + cos activeModel.ballDir * activeModel.ballSpeed
+        , ballY = activeModel.ballY + sin activeModel.ballDir * activeModel.ballSpeed
     }
 
 
@@ -207,8 +221,8 @@ view model =
                             , ( "height", "20px" )
                             , ( "border-radius", "50%" )
                             , ( "background-color", "black" )
-                            , ( "top", toString activeModel.balY ++ "px" )
-                            , ( "left", toString activeModel.balX ++ "px" )
+                            , ( "top", toString activeModel.ballY ++ "px" )
+                            , ( "left", toString activeModel.ballX ++ "px" )
                             , ( "position", "absolute" )
                             ]
                         ]
