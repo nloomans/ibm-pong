@@ -73,3 +73,4 @@ typings/
 .vagrant/
 
 # End of https://www.gitignore.io/api/node,elm,vagrant
+package-lock.json
