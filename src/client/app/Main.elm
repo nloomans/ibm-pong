@@ -44,9 +44,7 @@ init =
 
 type WSMsg
     = BatUpdate Int
-    | Foo
-    | Bar
-    | Baz
+    | GameStart
 
 
 encode : WSMsg -> String
@@ -54,14 +52,8 @@ encode wsMsg =
     let
         list =
             case wsMsg of
-                Foo ->
+                GameStart ->
                     [ 101 ]
-
-                Bar ->
-                    [ 102 ]
-
-                Baz ->
-                    [ 103 ]
 
                 BatUpdate pos ->
                     [ 201, pos ]
@@ -81,16 +73,7 @@ decode string =
     in
         case list of
             [ 101 ] ->
-                Foo
-
-            [ 102 ] ->
-                Bar
-
-            [ 103 ] ->
-                Baz
-
-            [ 201, pos ] ->
-                BatUpdate pos
+                GameStart
 
             _ ->
                 Debug.crash ("Invalid list " ++ toString list)
@@ -119,13 +102,17 @@ onKeyUp tagger =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case model of
-        Active activeModel ->
-            case msg of
-                NewMessage msg ->
-                    ( Active activeModel, Cmd.none )
+    case msg of
+        NewMessage encodedMsg ->
+            let
+                msg =
+                    decode encodedMsg
+            in
+                ( Active (ActiveModel 0 0 30 30 (0.1 * tau) 5), Cmd.none )
 
-                Tick _ ->
+        Tick _ ->
+            case model of
+                Active activeModel ->
                     if activeModel.balX > 800 - 2 * 20 || activeModel.balX < 20 then
                         -- 20 for the ball and 20 for the bat
                         ( Active (updateBallPos { activeModel | ballDir = pi - activeModel.ballDir })
@@ -140,10 +127,15 @@ update msg model =
                         , Cmd.none
                         )
 
-                KeyUp msg ->
-                    ( Active activeModel, Cmd.none )
+                Pending ->
+                    ( model, Cmd.none )
 
-                KeyDown msg ->
+        KeyUp msg ->
+            ( model, Cmd.none )
+
+        KeyDown msg ->
+            case model of
+                Active activeModel ->
                     if msg == 38 then
                         ( Active { activeModel | leftY = activeModel.leftY - 30 }, WebSocket.send "ws://localhost:8000" (encode (BatUpdate activeModel.leftY)) )
                     else if msg == 40 then
@@ -151,8 +143,8 @@ update msg model =
                     else
                         ( Active activeModel, Cmd.none )
 
-        Pending ->
-            ( model, Cmd.none )
+                Pending ->
+                    ( model, Cmd.none )
 
 
 updateBallPos : ActiveModel -> ActiveModel
@@ -167,7 +159,12 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ WebSocket.listen "ws://localhost:8000" NewMessage
-        , Time.every (40 * millisecond) Tick
+        , case model of
+            Active _ ->
+                Time.every (40 * millisecond) Tick
+
+            Pending ->
+                Sub.none
         ]
 
 
