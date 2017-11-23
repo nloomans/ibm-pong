@@ -23,7 +23,7 @@ function encode(array) {
 
 class Game extends EventEmitter {
   start() {
-    this.emit('ballUpdate', 30, 30, (0.2 * Math.PI));
+    this.emit('ballUpdate', 50, 50, (0.2 * Math.PI));
   }
 }
 
@@ -71,7 +71,13 @@ class ClientRepresentor extends EventEmitter {
   }
 
   onBallUpdate(x, y, dir) {
-    this.sendMessage([202, Math.round(x), Math.round(y), Math.round(dir * 100)]);
+    if (this.player === 1) {
+      this.sendMessage([202, Math.round(x), Math.round(y), Math.round(dir * 100)]);
+    } else {
+      const flippedX = 800 - x;
+      const flippedDir = Math.PI - dir;
+      this.sendMessage([202, Math.round(flippedX), Math.round(y), Math.round(flippedDir * 100)]);
+    }
   }
 
   /**

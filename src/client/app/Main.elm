@@ -143,12 +143,12 @@ update msg model =
         Tick _ ->
             case model of
                 Active activeModel ->
-                    if activeModel.ballX > 800 - 2 * 20 || activeModel.ballX < 20 then
-                        -- 20 for the ball and 20 for the bat
+                    if activeModel.ballX > (800 - 10 - 20) || activeModel.ballX < (10 + 20) then
+                        -- 10 for the ball and 20 for the bat
                         ( Active (updateBallPos { activeModel | ballDir = pi - activeModel.ballDir })
                         , Cmd.none
                         )
-                    else if activeModel.ballY > 450 - 20 || activeModel.ballY < 0 then
+                    else if activeModel.ballY > (450 - 10) || activeModel.ballY < 10 then
                         ( Active (updateBallPos { activeModel | ballDir = tau - activeModel.ballDir })
                         , Cmd.none
                         )
@@ -253,8 +253,8 @@ viewBall x y =
             , ( "height", "20px" )
             , ( "border-radius", "50%" )
             , ( "background-color", "black" )
-            , ( "top", toString y ++ "px" )
-            , ( "left", toString x ++ "px" )
+            , ( "top", toString (y - 10) ++ "px" )
+            , ( "left", toString (x - 10) ++ "px" )
             , ( "position", "absolute" )
             ]
         ]
