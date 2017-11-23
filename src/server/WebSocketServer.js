@@ -21,7 +21,11 @@ function encode(array) {
   return array.map(int => String.fromCharCode(int)).join('');
 }
 
-class Game {}
+class Game extends EventEmitter {
+  start() {
+    this.emit('ballUpdate', 30, 30, (0.2 * Math.PI));
+  }
+}
 
 class ClientRepresentor extends EventEmitter {
   /**
@@ -41,6 +45,7 @@ class ClientRepresentor extends EventEmitter {
     // (╯°□°）╯︵ ┻━┻
     this.onMessage = this.onMessage.bind(this);
     this.onClose = this.onClose.bind(this);
+    this.onBallUpdate = this.onBallUpdate.bind(this);
 
     this.connection.on('message', this.onMessage);
     this.connection.on('close', this.onClose);
@@ -57,9 +62,16 @@ class ClientRepresentor extends EventEmitter {
    *     player two.
    */
   attachToGame(game, player) {
-    this.game = game;
     this.player = player;
+    this.game = game;
+
+    this.game.on('ballUpdate', this.onBallUpdate);
+
     this.sendMessage([101]);
+  }
+
+  onBallUpdate(x, y, dir) {
+    this.sendMessage([202, Math.round(x), Math.round(y), Math.round(dir * 100)]);
   }
 
   /**
@@ -190,6 +202,8 @@ class Server {
       this.state.pendingClients[0].attachToGame(game, 1);
       this.state.pendingClients[1].attachToGame(game, 2);
       this.state.pendingClients = [];
+
+      game.start();
     }
   }
 }

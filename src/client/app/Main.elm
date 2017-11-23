@@ -44,6 +44,7 @@ init =
 
 type WSMsg
     = BatUpdate Int
+    | BallUpdate Float Float Float
     | GameStart
     | GameStop
 
@@ -61,6 +62,9 @@ encode wsMsg =
 
                 BatUpdate pos ->
                     [ 201, pos ]
+
+                BallUpdate x y dir ->
+                    [ 202, round x, round y, round (dir * 100) ]
     in
         list
             |> List.map Char.fromCode
@@ -81,6 +85,9 @@ decode string =
 
             [ 102 ] ->
                 GameStop
+
+            [ 202, x, y, dir ] ->
+                BallUpdate (toFloat x) (toFloat y) ((toFloat dir) / 100)
 
             _ ->
                 Debug.crash ("Invalid list " ++ toString list)
@@ -117,13 +124,21 @@ update msg model =
             in
                 case msg of
                     GameStart ->
-                        ( Active (ActiveModel 0 0 30 30 (0.1 * tau) 5), Cmd.none )
+                        ( Active (ActiveModel 0 0 0 0 0 5), Cmd.none )
 
                     GameStop ->
                         ( Pending, Cmd.none )
 
                     BatUpdate _ ->
                         ( model, Cmd.none )
+
+                    BallUpdate x y dir ->
+                        case model of
+                            Active activeModel ->
+                                ( Active ({ activeModel | ballX = x, ballY = y, ballDir = dir }), Cmd.none )
+
+                            Pending ->
+                                ( model, Cmd.none )
 
         Tick _ ->
             case model of
