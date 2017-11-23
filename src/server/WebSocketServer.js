@@ -38,6 +38,7 @@ class ClientRepresentor extends EventEmitter {
 
     this.connection = connection;
 
+    // (╯°□°）╯︵ ┻━┻
     this.onMessage = this.onMessage.bind(this);
     this.onClose = this.onClose.bind(this);
 
@@ -110,6 +111,7 @@ class Server {
       clients: [],
     };
 
+    // (╯°□°）╯︵ ┻━┻
     this.onNewConnection = this.onNewConnection.bind(this);
     this.onConnectionClose = this.onConnectionClose.bind(this);
 
