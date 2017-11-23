@@ -26,8 +26,9 @@ main =
 
 -- MODEL
 
+
 type alias ActiveModel =
-    { leftY : Int, rightY : Int, ballX : Float, ballY : Float, ballDir: Float, ballSpeed: Float }
+    { leftY : Int, rightY : Int, ballX : Float, ballY : Float, ballDir : Float, ballSpeed : Float }
 
 
 type Model
@@ -215,18 +216,7 @@ view model =
                     [ text (toString activeModel)
                     , viewBouncher Left activeModel.leftY
                     , viewBouncher Right activeModel.rightY
-                    , div
-                        [ style
-                            [ ( "width", "20px" )
-                            , ( "height", "20px" )
-                            , ( "border-radius", "50%" )
-                            , ( "background-color", "black" )
-                            , ( "top", toString activeModel.ballY ++ "px" )
-                            , ( "left", toString activeModel.ballX ++ "px" )
-                            , ( "position", "absolute" )
-                            ]
-                        ]
-                        []
+                    , viewBall activeModel.ballX activeModel.ballY
                     ]
 
                 Pending ->
@@ -238,6 +228,22 @@ view model =
 type Side
     = Left
     | Right
+
+
+viewBall : Float -> Float -> Html Msg
+viewBall x y =
+    div
+        [ style
+            [ ( "width", "20px" )
+            , ( "height", "20px" )
+            , ( "border-radius", "50%" )
+            , ( "background-color", "black" )
+            , ( "top", toString y ++ "px" )
+            , ( "left", toString x ++ "px" )
+            , ( "position", "absolute" )
+            ]
+        ]
+        []
 
 
 viewBouncher : Side -> Int -> Html Msg
