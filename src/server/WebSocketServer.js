@@ -55,8 +55,8 @@ class ClientRepresentor extends EventEmitter {
   }
 
   /**
-   * Save reference to game class and tell client that the game has been
-   * started.
+   * Save reference to game class, add event listners, and tell client that the
+   * game has been started.
    * @param {game} game The game object.
    * @param {1 or 2} player Signifies whenever this client is player one or
    *     player two.
@@ -209,6 +209,8 @@ class Server {
       this.state.pendingClients[1].attachToGame(game, 2);
       this.state.pendingClients = [];
 
+      // Let the client representors add their event listners before starting
+      // the game.
       game.start();
     }
   }
