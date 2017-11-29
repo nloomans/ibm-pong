@@ -5,15 +5,16 @@ import Html exposing (Html, br, button, div, text)
 import Html.Attributes exposing (style, tabindex)
 import Html.Events exposing (onClick)
 import Time exposing (Time, millisecond)
-import Mouse exposing (..)
 import WebSocket
 import Json.Decode as Json
 
 
+tau : Float
 tau =
     2 * pi
 
 
+main : Program Never Model Msg
 main =
     Html.program
         { init = init
@@ -28,12 +29,13 @@ main =
 
 
 type alias ActiveModel =
-    { leftY : Int, rightY : Int, ballX : Float, ballY : Float, ballDir : Float, ballSpeed : Float }
+    { leftY : Int, rightY : Int, ballX : Float, ballY : Float, ballDir : Float, ballSpeed : Int, waitForBallUpdate : Bool }
 
 
 type Model
     = Active ActiveModel
     | Pending
+    | GameOver Bool
 
 
 init : ( Model, Cmd Msg )
@@ -44,9 +46,10 @@ init =
 
 type WSMsg
     = BatUpdate Int
-    | BallUpdate Float Float Float
+    | BallUpdate Float Float Float Int
     | GameStart
     | GameStop
+    | Miss
 
 
 encode : WSMsg -> String
@@ -60,11 +63,14 @@ encode wsMsg =
                 GameStop ->
                     [ 102 ]
 
+                Miss ->
+                    [ 103 ]
+
                 BatUpdate pos ->
                     [ 201, pos ]
 
-                BallUpdate x y dir ->
-                    [ 202, round x, round y, round (dir * 100) ]
+                BallUpdate x y dir speed ->
+                    Debug.log "Encoding BallUpdate" [ 202, round x, round y, round ((sanifyRadians dir) * 10000), speed ]
     in
         list
             |> List.map Char.fromCode
@@ -86,8 +92,14 @@ decode string =
             [ 102 ] ->
                 GameStop
 
-            [ 202, x, y, dir ] ->
-                BallUpdate (toFloat x) (toFloat y) ((toFloat dir) / 10000)
+            [ 103 ] ->
+                Miss
+
+            [ 201, pos ] ->
+                BatUpdate pos
+
+            [ 202, x, y, dir, speed ] ->
+                BallUpdate (toFloat x) (toFloat y) ((toFloat dir) / 10000) speed
 
             _ ->
                 Debug.crash ("Invalid list " ++ toString list)
@@ -113,6 +125,14 @@ onKeyUp : (Int -> msg) -> Html.Attribute msg
 onKeyUp tagger =
     Html.Events.on "keyup" (Json.map tagger Html.Events.keyCode)
 
+sanifyRadians : Float -> Float
+sanifyRadians radians_ =
+    if radians_ < 0 then
+        sanifyRadians (radians_ + tau)
+    else if radians_ > tau then
+        sanifyRadians (radians_ - tau)
+    else
+        Debug.log "Fixed Radians" radians_
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -124,31 +144,54 @@ update msg model =
             in
                 case msg of
                     GameStart ->
-                        ( Active (ActiveModel 0 0 0 0 0 5), Cmd.none )
+                        ( Active (ActiveModel 0 0 0 0 0 0 True), Cmd.none )
 
                     GameStop ->
                         ( Pending, Cmd.none )
 
-                    BatUpdate _ ->
-                        ( model, Cmd.none )
-
-                    BallUpdate x y dir ->
+                    BatUpdate rightY ->
                         case model of
                             Active activeModel ->
-                                ( Active ({ activeModel | ballX = x, ballY = y, ballDir = dir }), Cmd.none )
+                                ( Active ({ activeModel | rightY = rightY }), Cmd.none )
 
-                            Pending ->
+                            _ ->
                                 ( model, Cmd.none )
+
+                    BallUpdate x y dir speed ->
+                        case model of
+                            Active activeModel ->
+                                ( Active ({ activeModel | ballX = x, ballY = y, ballDir = dir, ballSpeed = speed, waitForBallUpdate = False }), Cmd.none )
+
+                            _ ->
+                                ( model, Cmd.none )
+
+                    Miss ->
+                        ( GameOver True, Cmd.none )
 
         Tick _ ->
             case model of
                 Active activeModel ->
-                    if activeModel.ballX > (800 - 10 - 20) || activeModel.ballX < (10 + 20) then
-                        -- 10 for the ball and 20 for the bat
-                        ( Active (updateBallPos { activeModel | ballDir = pi - activeModel.ballDir })
-                        , Cmd.none
-                        )
-                    else if activeModel.ballY > (450 - 10) || activeModel.ballY < 10 then
+                    if activeModel.waitForBallUpdate then
+                        ( Active activeModel, Cmd.none )
+                    else if activeModel.ballX < (10 + 20) then
+                        -- Check if the ball hit the bat.
+                        if activeModel.ballY >= toFloat (activeModel.leftY - 50) && activeModel.ballY <= toFloat (activeModel.leftY + 50) then
+                            -- The ball hit the bat.
+                            let
+                                newModel =
+                                    updateBallPos { activeModel | ballDir = pi - activeModel.ballDir, ballSpeed = activeModel.ballSpeed + 5 }
+                            in
+                                ( Active ({ activeModel | waitForBallUpdate = True })
+                                , WebSocket.send "ws://localhost:8000" (encode (BallUpdate newModel.ballX newModel.ballY newModel.ballDir newModel.ballSpeed))
+                                )
+                        else
+                            -- The ball did not hit the bat
+                            ( GameOver False, WebSocket.send "ws://localhost:8000" (encode Miss) )
+                        -- else if activeModel.ballX > (800 - 10 - 20) then
+                        --     ( Active (updateBallPos { activeModel | ballDir = pi - activeModel.ballDir })
+                        --     , Cmd.none
+                        --     )
+                    else if activeModel.ballY < 10 || activeModel.ballY > (450 - 10) then
                         ( Active (updateBallPos { activeModel | ballDir = tau - activeModel.ballDir })
                         , Cmd.none
                         )
@@ -157,7 +200,7 @@ update msg model =
                         , Cmd.none
                         )
 
-                Pending ->
+                _ ->
                     ( model, Cmd.none )
 
         KeyUp msg ->
@@ -167,21 +210,21 @@ update msg model =
             case model of
                 Active activeModel ->
                     if msg == 38 then
-                        ( Active { activeModel | leftY = activeModel.leftY - 30 }, WebSocket.send "ws://localhost:8000" (encode (BatUpdate activeModel.leftY)) )
+                        ( Active { activeModel | leftY = activeModel.leftY - 30 }, WebSocket.send "ws://localhost:8000" (encode (BatUpdate (activeModel.leftY - 30))) )
                     else if msg == 40 then
-                        ( Active { activeModel | leftY = activeModel.leftY + 30 }, WebSocket.send "ws://localhost:8000" (encode (BatUpdate activeModel.leftY)) )
+                        ( Active { activeModel | leftY = activeModel.leftY + 30 }, WebSocket.send "ws://localhost:8000" (encode (BatUpdate (activeModel.leftY + 30))) )
                     else
                         ( Active activeModel, Cmd.none )
 
-                Pending ->
+                _ ->
                     ( model, Cmd.none )
 
 
 updateBallPos : ActiveModel -> ActiveModel
 updateBallPos activeModel =
     { activeModel
-        | ballX = activeModel.ballX + cos activeModel.ballDir * activeModel.ballSpeed
-        , ballY = activeModel.ballY + sin activeModel.ballDir * activeModel.ballSpeed
+        | ballX = activeModel.ballX + cos activeModel.ballDir * toFloat activeModel.ballSpeed
+        , ballY = activeModel.ballY + sin activeModel.ballDir * toFloat activeModel.ballSpeed
     }
 
 
@@ -193,7 +236,7 @@ subscriptions model =
             Active _ ->
                 Time.every (40 * millisecond) Tick
 
-            Pending ->
+            _ ->
                 Sub.none
         ]
 
@@ -236,6 +279,14 @@ view model =
 
                 Pending ->
                     [ text "Waiting for another client to connect..." ]
+
+                GameOver haveIWon ->
+                    case haveIWon of
+                        True ->
+                            [ text "GAME OVER! - VICTORY" ]
+
+                        False ->
+                            [ text "GAME OVER! - YOU LOSE" ]
             )
         ]
 

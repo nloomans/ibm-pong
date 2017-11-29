@@ -1,6 +1,15 @@
 const WebSocketServer = require('websocket').server;
 const EventEmitter = require('events');
 
+function sanifyRadians(radians) {
+  if (radians < 0) {
+    return sanifyRadians(radians + (2 * Math.PI));
+  } else if (radians > 2 * Math.PI) {
+    return sanifyRadians(radians - (2 * Math.PI));
+  }
+  return radians;
+}
+
 /**
  * Decodes the output of `encode` back to the orignal array.
  * @param {string} string output of `encode`
@@ -23,7 +32,19 @@ function encode(array) {
 
 class Game extends EventEmitter {
   start() {
-    this.emit('ballUpdate', 50, 50, (0.2 * Math.PI));
+    this.emit('ballUpdate', 50, 50, (0.2 * Math.PI), 5);
+  }
+
+  updateBat(player, batY) {
+    this.emit(`p${player}:batUpdate`, batY);
+  }
+
+  updateBall(x, y, dir, speed) {
+    this.emit('ballUpdate', x, y, sanifyRadians(dir), speed);
+  }
+
+  playerLost(player) {
+    this.emit(`p${player}:lost`);
   }
 }
 
@@ -46,6 +67,11 @@ class ClientRepresentor extends EventEmitter {
     this.onMessage = this.onMessage.bind(this);
     this.onClose = this.onClose.bind(this);
     this.onBallUpdate = this.onBallUpdate.bind(this);
+    this.onMyBatUpdate = this.onMyBatUpdate.bind(this);
+    this.onOtherPlayerBatUpdate = this.onOtherPlayerBatUpdate.bind(this);
+    this.onLose = this.onLose.bind(this);
+    this.onWin = this.onWin.bind(this);
+    this.sendBallUpdate = this.sendBallUpdate.bind(this);
 
     this.connection.on('message', this.onMessage);
     this.connection.on('close', this.onClose);
@@ -65,19 +91,51 @@ class ClientRepresentor extends EventEmitter {
     this.player = player;
     this.game = game;
 
+    const otherPlayer = player === 1 ? 2 : 1;
+
     this.game.on('ballUpdate', this.onBallUpdate);
+    this.game.on(`p${otherPlayer}:batUpdate`, this.onOtherPlayerBatUpdate);
+    this.game.on(`p${otherPlayer}:lost`, this.onWin);
 
     this.sendMessage([101]);
   }
 
-  onBallUpdate(x, y, dir) {
+  onBallUpdate(x, y, dir, speed) {
     if (this.player === 1) {
-      this.sendMessage([202, Math.round(x), Math.round(y), Math.round(dir * 10000)]);
+      this.sendMessage([202, Math.round(x), Math.round(y), Math.round(dir * 10000), speed]);
     } else {
       const flippedX = 800 - x;
       const flippedDir = Math.PI - dir;
-      this.sendMessage([202, Math.round(flippedX), Math.round(y), Math.round(flippedDir * 10000)]);
+      this.sendMessage([202, Math.round(flippedX), Math.round(y), Math.round(flippedDir * 10000), speed]);
     }
+  }
+
+  sendBallUpdate(x, y, dir, speed) {
+    const correctedDir = dir / 10000;
+    if (this.player === 1) {
+      this.game.updateBall(x, y, correctedDir, speed);
+    } else {
+      const flippedX = 800 - x;
+      const flippedDir = Math.PI - correctedDir;
+      console.log(this.game, this.game.updateBall);
+      this.game.updateBall(flippedX, y, flippedDir, speed);
+    }
+  }
+
+  onLose() {
+    this.game.playerLost(this.player);
+  }
+
+  onWin() {
+    this.sendMessage([103]);
+  }
+
+  onMyBatUpdate(newY) {
+    this.game.updateBat(this.player, newY);
+  }
+
+  onOtherPlayerBatUpdate(newY) {
+    this.sendMessage([201, newY]);
   }
 
   /**
@@ -93,10 +151,24 @@ class ClientRepresentor extends EventEmitter {
    * This function gets called when the client sends a message.
    * @param {string} utf8EncodedMessage String encoded by the `encode` function.
    */
-  // eslint-disable-next-line class-methods-use-this
   onMessage(utf8EncodedMessage) {
     const message = decode(utf8EncodedMessage.utf8Data);
+
     console.log(`New message ${message}`);
+
+    switch (message[0]) {
+      case 103:
+        this.onLose(message[1]);
+        break;
+      case 201:
+        this.onMyBatUpdate(message[1]);
+        break;
+      case 202:
+        this.sendBallUpdate(message[1], message[2], message[3], message[4]);
+        break;
+      default:
+        throw Error(`Unknown message from client: ${message}`);
+    }
   }
 
   /**
@@ -112,6 +184,7 @@ class ClientRepresentor extends EventEmitter {
    * @param {array<int>} message The message to send to the client.
    */
   sendMessage(message) {
+    console.log(`sending message to p${this.player}: ${message}`);
     this.connection.sendUTF(encode(message));
   }
 }
