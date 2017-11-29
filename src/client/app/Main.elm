@@ -87,7 +87,7 @@ decode string =
                 GameStop
 
             [ 202, x, y, dir ] ->
-                BallUpdate (toFloat x) (toFloat y) ((toFloat dir) / 100)
+                BallUpdate (toFloat x) (toFloat y) ((toFloat dir) / 10000)
 
             _ ->
                 Debug.crash ("Invalid list " ++ toString list)

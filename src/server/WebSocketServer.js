@@ -72,11 +72,11 @@ class ClientRepresentor extends EventEmitter {
 
   onBallUpdate(x, y, dir) {
     if (this.player === 1) {
-      this.sendMessage([202, Math.round(x), Math.round(y), Math.round(dir * 100)]);
+      this.sendMessage([202, Math.round(x), Math.round(y), Math.round(dir * 10000)]);
     } else {
       const flippedX = 800 - x;
       const flippedDir = Math.PI - dir;
-      this.sendMessage([202, Math.round(flippedX), Math.round(y), Math.round(flippedDir * 100)]);
+      this.sendMessage([202, Math.round(flippedX), Math.round(y), Math.round(flippedDir * 10000)]);
     }
   }
 
