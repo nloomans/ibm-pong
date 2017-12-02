@@ -40,18 +40,18 @@ type Game
 
 type alias Model =
     { game : Game
-    , hostname : String
+    , wsserver : String
     }
 
 
 type alias Flags =
-    { hostname : String }
+    { wsserver : String }
 
 
 init : Flags -> ( Model, Cmd Msg )
 init flags =
     -- ( Active (ActiveModel 0 0 30 30 (0.1 * tau) 5), Cmd.none )
-    ( Model Pending flags.hostname, Cmd.none )
+    ( Model Pending flags.wsserver, Cmd.none )
 
 
 type WSMsg
@@ -146,13 +146,12 @@ sanifyRadians radians_ =
         Debug.log "Fixed Radians" radians_
 
 
-
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     let
         send : WSMsg -> Cmd msg
         send wsmsg =
-            WebSocket.send ("ws://" ++ model.hostname) (encode wsmsg)
+            WebSocket.send model.wsserver (encode wsmsg)
     in
         case msg of
             NewMessage encodedMsg ->
@@ -262,7 +261,7 @@ updateBallPos activeGame =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ WebSocket.listen ("ws://" ++ model.hostname) NewMessage
+        [ WebSocket.listen model.wsserver NewMessage
         , case model.game of
             Active _ ->
                 Time.every (40 * millisecond) Tick

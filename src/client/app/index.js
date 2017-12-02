@@ -1,5 +1,5 @@
 const Elm = require('./Main.elm');
 
 Elm.Main.fullscreen({
-  hostname: window.location.host,
+  wsserver: (window.location.protocol.includes('https') ? 'wss://' : 'ws://') + window.location.host,
 });
