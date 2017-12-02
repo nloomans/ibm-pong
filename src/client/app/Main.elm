@@ -281,7 +281,7 @@ view model =
         [ style
             [ ( "width", "100vw" )
             , ( "height", "100vh" )
-            , ( "background-color", "black" )
+            , ( "background-color", "#e2e1e0" )
             , ( "display", "flex" )
             , ( "align-items", "center" )
             , ( "justify-content", "center" )
@@ -294,30 +294,32 @@ view model =
             [ style
                 [ ( "width", "800px" )
                 , ( "height", "450px" )
-                , ( "position", "relative" )
                 , ( "background-color", "white" )
                 , ( "overflow", "hidden" )
+                , ( "box-shadow", "0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)" )
+                , ( "padding", "32px" )
                 ]
             ]
-            (case model.game of
-                Active activeGame ->
-                    [ text (toString activeGame)
-                    , viewBouncher Left activeGame.leftY
-                    , viewBouncher Right activeGame.rightY
-                    , viewBall activeGame.ballX activeGame.ballY
-                    ]
+            [ div [ style [ ( "position", "relative" ), ( "overflow", "hidden"), ("width", "inherit"), ("height", "inherit") ] ]
+                (case model.game of
+                    Active activeGame ->
+                        [ viewBouncher Left activeGame.leftY
+                        , viewBouncher Right activeGame.rightY
+                        , viewBall activeGame.ballX activeGame.ballY
+                        ]
 
-                Pending ->
-                    [ text "Waiting for another client to connect..." ]
+                    Pending ->
+                        [ text "Waiting for another client to connect..." ]
 
-                GameOver haveIWon ->
-                    case haveIWon of
-                        True ->
-                            [ text "GAME OVER! - VICTORY" ]
+                    GameOver haveIWon ->
+                        case haveIWon of
+                            True ->
+                                [ text "GAME OVER! - VICTORY" ]
 
-                        False ->
-                            [ text "GAME OVER! - YOU LOSE" ]
-            )
+                            False ->
+                                [ text "GAME OVER! - YOU LOSE" ]
+                )
+            ]
         ]
 
 
