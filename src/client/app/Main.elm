@@ -199,7 +199,7 @@ update msg model =
                                 -- The ball hit the bat.
                                 let
                                     nextGameState =
-                                        updateBallPos { activeGame | ballDir = pi - activeGame.ballDir, ballSpeed = activeGame.ballSpeed + 5 }
+                                        updateBallPos { activeGame | ballDir = pi - activeGame.ballDir, ballSpeed = activeGame.ballSpeed + 2 }
                                 in
                                     ( { model | game = Active ({ activeGame | waitForBallUpdate = True }) }
                                     , send (BallUpdate nextGameState.ballX nextGameState.ballY nextGameState.ballDir nextGameState.ballSpeed)

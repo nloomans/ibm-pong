@@ -32,7 +32,7 @@ function encode(array) {
 
 class Game extends EventEmitter {
   start() {
-    this.emit('ballUpdate', 50, 50, (0.2 * Math.PI), 5);
+    this.emit('ballUpdate', 50, 50, (0.2 * Math.PI), 10);
   }
 
   updateBat(player, batY) {
