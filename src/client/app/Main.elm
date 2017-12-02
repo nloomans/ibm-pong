@@ -152,7 +152,7 @@ update msg model =
     let
         send : WSMsg -> Cmd msg
         send wsmsg =
-            WebSocket.send model.hostname (encode wsmsg)
+            WebSocket.send ("ws://" ++ model.hostname) (encode wsmsg)
     in
         case msg of
             NewMessage encodedMsg ->
@@ -262,7 +262,7 @@ updateBallPos activeGame =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ WebSocket.listen model.hostname NewMessage
+        [ WebSocket.listen ("ws://" ++ model.hostname) NewMessage
         , case model.game of
             Active _ ->
                 Time.every (40 * millisecond) Tick
