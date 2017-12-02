@@ -28,20 +28,25 @@ main =
 -- MODEL
 
 
-type alias ActiveModel =
+type alias ActiveGame =
     { leftY : Int, rightY : Int, ballX : Float, ballY : Float, ballDir : Float, ballSpeed : Int, waitForBallUpdate : Bool }
 
 
-type Model
-    = Active ActiveModel
+type Game
+    = Active ActiveGame
     | Pending
     | GameOver Bool
+
+
+type alias Model =
+    { game : Game
+    }
 
 
 init : ( Model, Cmd Msg )
 init =
     -- ( Active (ActiveModel 0 0 30 30 (0.1 * tau) 5), Cmd.none )
-    ( Pending, Cmd.none )
+    ( Model Pending, Cmd.none )
 
 
 type WSMsg
@@ -125,6 +130,7 @@ onKeyUp : (Int -> msg) -> Html.Attribute msg
 onKeyUp tagger =
     Html.Events.on "keyup" (Json.map tagger Html.Events.keyCode)
 
+
 sanifyRadians : Float -> Float
 sanifyRadians radians_ =
     if radians_ < 0 then
@@ -133,6 +139,7 @@ sanifyRadians radians_ =
         sanifyRadians (radians_ - tau)
     else
         Debug.log "Fixed Radians" radians_
+
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -144,59 +151,72 @@ update msg model =
             in
                 case msg of
                     GameStart ->
-                        ( Active (ActiveModel 0 0 0 0 0 0 True), Cmd.none )
+                        ( { game = Active (ActiveGame 0 0 0 0 0 0 True) }, Cmd.none )
 
                     GameStop ->
-                        ( Pending, Cmd.none )
+                        ( { model | game = Pending }, Cmd.none )
 
                     BatUpdate rightY ->
-                        case model of
-                            Active activeModel ->
-                                ( Active ({ activeModel | rightY = rightY }), Cmd.none )
+                        case model.game of
+                            Active activeGame ->
+                                ( { model
+                                    | game =
+                                        Active { activeGame | rightY = rightY }
+                                  }
+                                , Cmd.none
+                                )
 
                             _ ->
                                 ( model, Cmd.none )
 
                     BallUpdate x y dir speed ->
-                        case model of
-                            Active activeModel ->
-                                ( Active ({ activeModel | ballX = x, ballY = y, ballDir = dir, ballSpeed = speed, waitForBallUpdate = False }), Cmd.none )
+                        case model.game of
+                            Active activeGame ->
+                                ( { model
+                                    | game =
+                                        Active
+                                            { activeGame
+                                                | ballX = x
+                                                , ballY = y
+                                                , ballDir = dir
+                                                , ballSpeed = speed
+                                                , waitForBallUpdate = False
+                                            }
+                                  }
+                                , Cmd.none
+                                )
 
                             _ ->
                                 ( model, Cmd.none )
 
                     Miss ->
-                        ( GameOver True, Cmd.none )
+                        ( { model | game = GameOver True }, Cmd.none )
 
         Tick _ ->
-            case model of
-                Active activeModel ->
-                    if activeModel.waitForBallUpdate then
-                        ( Active activeModel, Cmd.none )
-                    else if activeModel.ballX < (10 + 20) then
+            case model.game of
+                Active activeGame ->
+                    if activeGame.waitForBallUpdate then
+                        ( model, Cmd.none )
+                    else if activeGame.ballX < (10 + 20) then
                         -- Check if the ball hit the bat.
-                        if activeModel.ballY >= toFloat (activeModel.leftY - 50) && activeModel.ballY <= toFloat (activeModel.leftY + 50) then
+                        if activeGame.ballY >= toFloat (activeGame.leftY - 50) && activeGame.ballY <= toFloat (activeGame.leftY + 50) then
                             -- The ball hit the bat.
                             let
-                                newModel =
-                                    updateBallPos { activeModel | ballDir = pi - activeModel.ballDir, ballSpeed = activeModel.ballSpeed + 5 }
+                                nextGameState =
+                                    updateBallPos { activeGame | ballDir = pi - activeGame.ballDir, ballSpeed = activeGame.ballSpeed + 5 }
                             in
-                                ( Active ({ activeModel | waitForBallUpdate = True })
-                                , WebSocket.send "ws://localhost:8000" (encode (BallUpdate newModel.ballX newModel.ballY newModel.ballDir newModel.ballSpeed))
+                                ( { model | game = Active ({ activeGame | waitForBallUpdate = True }) }
+                                , WebSocket.send "ws://localhost:8000" (encode (BallUpdate nextGameState.ballX nextGameState.ballY nextGameState.ballDir nextGameState.ballSpeed))
                                 )
                         else
                             -- The ball did not hit the bat
-                            ( GameOver False, WebSocket.send "ws://localhost:8000" (encode Miss) )
-                        -- else if activeModel.ballX > (800 - 10 - 20) then
-                        --     ( Active (updateBallPos { activeModel | ballDir = pi - activeModel.ballDir })
-                        --     , Cmd.none
-                        --     )
-                    else if activeModel.ballY < 10 || activeModel.ballY > (450 - 10) then
-                        ( Active (updateBallPos { activeModel | ballDir = tau - activeModel.ballDir })
+                            ( { model | game = GameOver False }, WebSocket.send "ws://localhost:8000" (encode Miss) )
+                    else if activeGame.ballY < 10 || activeGame.ballY > (450 - 10) then
+                        ( { model | game = Active (updateBallPos { activeGame | ballDir = tau - activeGame.ballDir }) }
                         , Cmd.none
                         )
                     else
-                        ( Active (updateBallPos activeModel)
+                        ( { model | game = Active (updateBallPos activeGame) }
                         , Cmd.none
                         )
 
@@ -207,24 +227,24 @@ update msg model =
             ( model, Cmd.none )
 
         KeyDown msg ->
-            case model of
-                Active activeModel ->
+            case model.game of
+                Active activeGame ->
                     if msg == 38 then
-                        ( Active { activeModel | leftY = activeModel.leftY - 30 }, WebSocket.send "ws://localhost:8000" (encode (BatUpdate (activeModel.leftY - 30))) )
+                        ( { model | game = Active { activeGame | leftY = activeGame.leftY - 30 } }, WebSocket.send "ws://localhost:8000" (encode (BatUpdate (activeGame.leftY - 30))) )
                     else if msg == 40 then
-                        ( Active { activeModel | leftY = activeModel.leftY + 30 }, WebSocket.send "ws://localhost:8000" (encode (BatUpdate (activeModel.leftY + 30))) )
+                        ( { model | game = Active { activeGame | leftY = activeGame.leftY + 30 } }, WebSocket.send "ws://localhost:8000" (encode (BatUpdate (activeGame.leftY + 30))) )
                     else
-                        ( Active activeModel, Cmd.none )
+                        ( { model | game = Active activeGame }, Cmd.none )
 
                 _ ->
                     ( model, Cmd.none )
 
 
-updateBallPos : ActiveModel -> ActiveModel
-updateBallPos activeModel =
-    { activeModel
-        | ballX = activeModel.ballX + cos activeModel.ballDir * toFloat activeModel.ballSpeed
-        , ballY = activeModel.ballY + sin activeModel.ballDir * toFloat activeModel.ballSpeed
+updateBallPos : ActiveGame -> ActiveGame
+updateBallPos activeGame =
+    { activeGame
+        | ballX = activeGame.ballX + cos activeGame.ballDir * toFloat activeGame.ballSpeed
+        , ballY = activeGame.ballY + sin activeGame.ballDir * toFloat activeGame.ballSpeed
     }
 
 
@@ -232,7 +252,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ WebSocket.listen "ws://localhost:8000" NewMessage
-        , case model of
+        , case model.game of
             Active _ ->
                 Time.every (40 * millisecond) Tick
 
@@ -269,12 +289,12 @@ view model =
                 , ( "overflow", "hidden" )
                 ]
             ]
-            (case model of
-                Active activeModel ->
-                    [ text (toString activeModel)
-                    , viewBouncher Left activeModel.leftY
-                    , viewBouncher Right activeModel.rightY
-                    , viewBall activeModel.ballX activeModel.ballY
+            (case model.game of
+                Active activeGame ->
+                    [ text (toString activeGame)
+                    , viewBouncher Left activeGame.leftY
+                    , viewBouncher Right activeGame.rightY
+                    , viewBall activeGame.ballX activeGame.ballY
                     ]
 
                 Pending ->
