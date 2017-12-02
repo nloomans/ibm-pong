@@ -14,9 +14,9 @@ tau =
     2 * pi
 
 
-main : Program Never Model Msg
+main : Program Flags Model Msg
 main =
-    Html.program
+    Html.programWithFlags
         { init = init
         , view = view
         , update = update
@@ -40,13 +40,18 @@ type Game
 
 type alias Model =
     { game : Game
+    , hostname : String
     }
 
 
-init : ( Model, Cmd Msg )
-init =
+type alias Flags =
+    { hostname : String }
+
+
+init : Flags -> ( Model, Cmd Msg )
+init flags =
     -- ( Active (ActiveModel 0 0 30 30 (0.1 * tau) 5), Cmd.none )
-    ( Model Pending, Cmd.none )
+    ( Model Pending flags.hostname, Cmd.none )
 
 
 type WSMsg
@@ -141,103 +146,109 @@ sanifyRadians radians_ =
         Debug.log "Fixed Radians" radians_
 
 
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case msg of
-        NewMessage encodedMsg ->
-            let
-                msg =
-                    decode encodedMsg
-            in
-                case msg of
-                    GameStart ->
-                        ( { game = Active (ActiveGame 0 0 0 0 0 0 True) }, Cmd.none )
+    let
+        send : WSMsg -> Cmd msg
+        send wsmsg =
+            WebSocket.send model.hostname (encode wsmsg)
+    in
+        case msg of
+            NewMessage encodedMsg ->
+                let
+                    msg =
+                        decode encodedMsg
+                in
+                    case msg of
+                        GameStart ->
+                            ( { model | game = Active (ActiveGame 0 0 0 0 0 0 True) }, Cmd.none )
 
-                    GameStop ->
-                        ( { model | game = Pending }, Cmd.none )
+                        GameStop ->
+                            ( { model | game = Pending }, Cmd.none )
 
-                    BatUpdate rightY ->
-                        case model.game of
-                            Active activeGame ->
-                                ( { model
-                                    | game =
-                                        Active { activeGame | rightY = rightY }
-                                  }
-                                , Cmd.none
-                                )
+                        BatUpdate rightY ->
+                            case model.game of
+                                Active activeGame ->
+                                    ( { model
+                                        | game =
+                                            Active { activeGame | rightY = rightY }
+                                      }
+                                    , Cmd.none
+                                    )
 
-                            _ ->
-                                ( model, Cmd.none )
+                                _ ->
+                                    ( model, Cmd.none )
 
-                    BallUpdate x y dir speed ->
-                        case model.game of
-                            Active activeGame ->
-                                ( { model
-                                    | game =
-                                        Active
-                                            { activeGame
-                                                | ballX = x
-                                                , ballY = y
-                                                , ballDir = dir
-                                                , ballSpeed = speed
-                                                , waitForBallUpdate = False
-                                            }
-                                  }
-                                , Cmd.none
-                                )
+                        BallUpdate x y dir speed ->
+                            case model.game of
+                                Active activeGame ->
+                                    ( { model
+                                        | game =
+                                            Active
+                                                { activeGame
+                                                    | ballX = x
+                                                    , ballY = y
+                                                    , ballDir = dir
+                                                    , ballSpeed = speed
+                                                    , waitForBallUpdate = False
+                                                }
+                                      }
+                                    , Cmd.none
+                                    )
 
-                            _ ->
-                                ( model, Cmd.none )
+                                _ ->
+                                    ( model, Cmd.none )
 
-                    Miss ->
-                        ( { model | game = GameOver True }, Cmd.none )
+                        Miss ->
+                            ( { model | game = GameOver True }, Cmd.none )
 
-        Tick _ ->
-            case model.game of
-                Active activeGame ->
-                    if activeGame.waitForBallUpdate then
-                        ( model, Cmd.none )
-                    else if activeGame.ballX < (10 + 20) then
-                        -- Check if the ball hit the bat.
-                        if activeGame.ballY >= toFloat (activeGame.leftY - 50) && activeGame.ballY <= toFloat (activeGame.leftY + 50) then
-                            -- The ball hit the bat.
-                            let
-                                nextGameState =
-                                    updateBallPos { activeGame | ballDir = pi - activeGame.ballDir, ballSpeed = activeGame.ballSpeed + 5 }
-                            in
-                                ( { model | game = Active ({ activeGame | waitForBallUpdate = True }) }
-                                , WebSocket.send "ws://localhost:8000" (encode (BallUpdate nextGameState.ballX nextGameState.ballY nextGameState.ballDir nextGameState.ballSpeed))
-                                )
+            Tick _ ->
+                case model.game of
+                    Active activeGame ->
+                        if activeGame.waitForBallUpdate then
+                            ( model, Cmd.none )
+                        else if activeGame.ballX < (10 + 20) then
+                            -- Check if the ball hit the bat.
+                            if activeGame.ballY >= toFloat (activeGame.leftY - 50) && activeGame.ballY <= toFloat (activeGame.leftY + 50) then
+                                -- The ball hit the bat.
+                                let
+                                    nextGameState =
+                                        updateBallPos { activeGame | ballDir = pi - activeGame.ballDir, ballSpeed = activeGame.ballSpeed + 5 }
+                                in
+                                    ( { model | game = Active ({ activeGame | waitForBallUpdate = True }) }
+                                    , send (BallUpdate nextGameState.ballX nextGameState.ballY nextGameState.ballDir nextGameState.ballSpeed)
+                                    )
+                            else
+                                -- The ball did not hit the bat
+                                ( { model | game = GameOver False }, send Miss )
+                        else if activeGame.ballY < 10 || activeGame.ballY > (450 - 10) then
+                            ( { model | game = Active (updateBallPos { activeGame | ballDir = tau - activeGame.ballDir }) }
+                            , Cmd.none
+                            )
                         else
-                            -- The ball did not hit the bat
-                            ( { model | game = GameOver False }, WebSocket.send "ws://localhost:8000" (encode Miss) )
-                    else if activeGame.ballY < 10 || activeGame.ballY > (450 - 10) then
-                        ( { model | game = Active (updateBallPos { activeGame | ballDir = tau - activeGame.ballDir }) }
-                        , Cmd.none
-                        )
-                    else
-                        ( { model | game = Active (updateBallPos activeGame) }
-                        , Cmd.none
-                        )
+                            ( { model | game = Active (updateBallPos activeGame) }
+                            , Cmd.none
+                            )
 
-                _ ->
-                    ( model, Cmd.none )
+                    _ ->
+                        ( model, Cmd.none )
 
-        KeyUp msg ->
-            ( model, Cmd.none )
+            KeyUp msg ->
+                ( model, Cmd.none )
 
-        KeyDown msg ->
-            case model.game of
-                Active activeGame ->
-                    if msg == 38 then
-                        ( { model | game = Active { activeGame | leftY = activeGame.leftY - 30 } }, WebSocket.send "ws://localhost:8000" (encode (BatUpdate (activeGame.leftY - 30))) )
-                    else if msg == 40 then
-                        ( { model | game = Active { activeGame | leftY = activeGame.leftY + 30 } }, WebSocket.send "ws://localhost:8000" (encode (BatUpdate (activeGame.leftY + 30))) )
-                    else
-                        ( { model | game = Active activeGame }, Cmd.none )
+            KeyDown msg ->
+                case model.game of
+                    Active activeGame ->
+                        if msg == 38 then
+                            ( { model | game = Active { activeGame | leftY = activeGame.leftY - 30 } }, send (BatUpdate (activeGame.leftY - 30)) )
+                        else if msg == 40 then
+                            ( { model | game = Active { activeGame | leftY = activeGame.leftY + 30 } }, send (BatUpdate (activeGame.leftY + 30)) )
+                        else
+                            ( { model | game = Active activeGame }, Cmd.none )
 
-                _ ->
-                    ( model, Cmd.none )
+                    _ ->
+                        ( model, Cmd.none )
 
 
 updateBallPos : ActiveGame -> ActiveGame
@@ -251,7 +262,7 @@ updateBallPos activeGame =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ WebSocket.listen "ws://localhost:8000" NewMessage
+        [ WebSocket.listen model.hostname NewMessage
         , case model.game of
             Active _ ->
                 Time.every (40 * millisecond) Tick
