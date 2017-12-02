@@ -2,12 +2,10 @@ module Main exposing (..)
 
 import Char
 import Html exposing (Html, br, button, div, text)
-import Html.Attributes exposing (style, tabindex)
-import Html.Events exposing (onClick)
+import Html.Attributes exposing (style)
 import Time exposing (Time, millisecond)
 import WebSocket
-import Json.Decode as Json
-
+import Ports exposing (onKeyDown)
 
 tau : Float
 tau =
@@ -50,7 +48,6 @@ type alias Flags =
 
 init : Flags -> ( Model, Cmd Msg )
 init flags =
-    -- ( Active (ActiveModel 0 0 30 30 (0.1 * tau) 5), Cmd.none )
     ( Model Pending flags.wsserver, Cmd.none )
 
 
@@ -80,7 +77,7 @@ encode wsMsg =
                     [ 201, pos ]
 
                 BallUpdate x y dir speed ->
-                    Debug.log "Encoding BallUpdate" [ 202, round x, round y, round ((sanifyRadians dir) * 10000), speed ]
+                    [ 202, round x, round y, round ((sanifyRadians dir) * 10000), speed ]
     in
         list
             |> List.map Char.fromCode
@@ -112,7 +109,7 @@ decode string =
                 BallUpdate (toFloat x) (toFloat y) ((toFloat dir) / 10000) speed
 
             _ ->
-                Debug.crash ("Invalid list " ++ toString list)
+                Debug.crash ("Invalid list from server: " ++ toString list)
 
 
 
@@ -122,18 +119,7 @@ decode string =
 type Msg
     = NewMessage String
     | Tick Time
-    | KeyUp Int
-    | KeyDown Int
-
-
-onKeyDown : (Int -> msg) -> Html.Attribute msg
-onKeyDown tagger =
-    Html.Events.on "keydown" (Json.map tagger Html.Events.keyCode)
-
-
-onKeyUp : (Int -> msg) -> Html.Attribute msg
-onKeyUp tagger =
-    Html.Events.on "keyup" (Json.map tagger Html.Events.keyCode)
+    | KeyDown String
 
 
 sanifyRadians : Float -> Float
@@ -143,13 +129,13 @@ sanifyRadians radians_ =
     else if radians_ > tau then
         sanifyRadians (radians_ - tau)
     else
-        Debug.log "Fixed Radians" radians_
+        radians_
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     let
-        send : WSMsg -> Cmd msg
+        send : WSMsg -> Cmd Msg
         send wsmsg =
             WebSocket.send model.wsserver (encode wsmsg)
     in
@@ -233,15 +219,12 @@ update msg model =
                     _ ->
                         ( model, Cmd.none )
 
-            KeyUp msg ->
-                ( model, Cmd.none )
-
             KeyDown msg ->
                 case model.game of
                     Active activeGame ->
-                        if msg == 38 then
+                        if msg == "ArrowUp" then
                             ( { model | game = Active { activeGame | leftY = activeGame.leftY - 30 } }, send (BatUpdate (activeGame.leftY - 30)) )
-                        else if msg == 40 then
+                        else if msg == "ArrowDown" then
                             ( { model | game = Active { activeGame | leftY = activeGame.leftY + 30 } }, send (BatUpdate (activeGame.leftY + 30)) )
                         else
                             ( { model | game = Active activeGame }, Cmd.none )
@@ -262,6 +245,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ WebSocket.listen model.wsserver NewMessage
+        , onKeyDown KeyDown
         , case model.game of
             Active _ ->
                 Time.every (40 * millisecond) Tick
@@ -286,9 +270,6 @@ view model =
             , ( "align-items", "center" )
             , ( "justify-content", "center" )
             ]
-        , tabindex 0
-        , onKeyDown KeyDown
-        , onKeyUp KeyUp
         ]
         [ div
             [ style
