@@ -61,11 +61,15 @@ type WSMsg
     | GameStop
     | Miss
 
+
+
 -- Turns a WSMsg into an utf8 encoded string that can be send to the server.
 -- Usuage:
 --   encode (BatUpdate 30)
 -- Returns:
 --   A string that should be send to the server.
+
+
 encode : WSMsg -> String
 encode wsMsg =
     let
@@ -91,12 +95,15 @@ encode wsMsg =
             |> String.fromList
 
 
+
 -- Decodes a utf8 encoded string into a WSMsg.
 -- Usuage:
 --   decode "foo" -- Foo is a utf8 encoded string send from the server
 --   (or created using `encode`)
 -- Returns:
 --   A WSMsg, e.g. BatUpdate 30
+
+
 decode : String -> WSMsg
 decode string =
     let
@@ -135,7 +142,10 @@ type Msg
     | KeyDown String
 
 
+
 -- Turns a crazy radian (e.g. -5pi) into something sane (e.g. 1pi)
+
+
 sanifyRadians : Float -> Float
 sanifyRadians radians_ =
     if radians_ < 0 then
@@ -227,12 +237,12 @@ update msg model =
                             else
                                 -- The ball did not hit the bat
                                 ( { model | game = GameOver False }, send Miss )
-                        -- Just some wall bounching.
+                            -- Just some wall bounching.
                         else if activeGame.ballY < 10 || activeGame.ballY > (450 - 10) then
                             ( { model | game = Active (updateBallPos timeDiff { activeGame | ballDir = tau - activeGame.ballDir }) }
                             , Cmd.none
                             )
-                        -- Nothing special happend, just update the ball pos.
+                            -- Nothing special happend, just update the ball pos.
                         else
                             ( { model | game = Active (updateBallPos timeDiff activeGame) }
                             , Cmd.none
@@ -245,9 +255,9 @@ update msg model =
                 case model.game of
                     Active activeGame ->
                         if msg == "ArrowUp" then
-                        -- Move the bat up, and tell the server that our bat has been moved.
+                            -- Move the bat up, and tell the server that our bat has been moved.
                             ( { model | game = Active { activeGame | leftY = activeGame.leftY - 60 } }, send (BatUpdate (activeGame.leftY - 60)) )
-                        -- Move the bat down, and tell the server that our bat has been moved.
+                            -- Move the bat down, and tell the server that our bat has been moved.
                         else if msg == "ArrowDown" then
                             ( { model | game = Active { activeGame | leftY = activeGame.leftY + 60 } }, send (BatUpdate (activeGame.leftY + 60)) )
                         else
@@ -257,7 +267,10 @@ update msg model =
                         ( model, Cmd.none )
 
 
+
 -- Move the ball to his position in the next point in time.
+
+
 updateBallPos : Time -> ActiveGame -> ActiveGame
 updateBallPos timeDiff activeGame =
     { activeGame
@@ -271,6 +284,10 @@ subscriptions model =
     Sub.batch
         [ WebSocket.listen model.wsserver NewMessage
         , onKeyDown KeyDown
+
+        -- Only listen for tick updates when the game is active. This has no
+        -- impact apart from making the log cleaner, as this check is made again
+        -- in the update function
         , case model.game of
             Active _ ->
                 tick Tick
