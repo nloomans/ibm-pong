@@ -224,9 +224,9 @@ update msg model =
                 case model.game of
                     Active activeGame ->
                         if msg == "ArrowUp" then
-                            ( { model | game = Active { activeGame | leftY = activeGame.leftY - 30 } }, send (BatUpdate (activeGame.leftY - 30)) )
+                            ( { model | game = Active { activeGame | leftY = activeGame.leftY - 60 } }, send (BatUpdate (activeGame.leftY - 60)) )
                         else if msg == "ArrowDown" then
-                            ( { model | game = Active { activeGame | leftY = activeGame.leftY + 30 } }, send (BatUpdate (activeGame.leftY + 30)) )
+                            ( { model | game = Active { activeGame | leftY = activeGame.leftY + 60 } }, send (BatUpdate (activeGame.leftY + 60)) )
                         else
                             ( { model | game = Active activeGame }, Cmd.none )
 
