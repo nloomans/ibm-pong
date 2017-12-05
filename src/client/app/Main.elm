@@ -1,11 +1,12 @@
 module Main exposing (..)
 
 import Char
-import Html exposing (Html, br, button, div, text)
+import Html exposing (Html, div, text)
 import Html.Attributes exposing (style)
-import Time exposing (Time, millisecond)
+import Time exposing (Time)
 import WebSocket
-import Ports exposing (onKeyDown)
+import Ports exposing (onKeyDown, tick)
+
 
 tau : Float
 tau =
@@ -188,7 +189,7 @@ update msg model =
                         Miss ->
                             ( { model | game = GameOver True }, Cmd.none )
 
-            Tick _ ->
+            Tick timeDiff ->
                 case model.game of
                     Active activeGame ->
                         if activeGame.waitForBallUpdate then
@@ -199,7 +200,7 @@ update msg model =
                                 -- The ball hit the bat.
                                 let
                                     nextGameState =
-                                        updateBallPos { activeGame | ballDir = pi - activeGame.ballDir, ballSpeed = activeGame.ballSpeed + 2 }
+                                        updateBallPos timeDiff { activeGame | ballDir = pi - activeGame.ballDir, ballSpeed = activeGame.ballSpeed + 2 }
                                 in
                                     ( { model | game = Active ({ activeGame | waitForBallUpdate = True }) }
                                     , send (BallUpdate nextGameState.ballX nextGameState.ballY nextGameState.ballDir nextGameState.ballSpeed)
@@ -208,11 +209,11 @@ update msg model =
                                 -- The ball did not hit the bat
                                 ( { model | game = GameOver False }, send Miss )
                         else if activeGame.ballY < 10 || activeGame.ballY > (450 - 10) then
-                            ( { model | game = Active (updateBallPos { activeGame | ballDir = tau - activeGame.ballDir }) }
+                            ( { model | game = Active (updateBallPos timeDiff { activeGame | ballDir = tau - activeGame.ballDir }) }
                             , Cmd.none
                             )
                         else
-                            ( { model | game = Active (updateBallPos activeGame) }
+                            ( { model | game = Active (updateBallPos timeDiff activeGame) }
                             , Cmd.none
                             )
 
@@ -233,11 +234,11 @@ update msg model =
                         ( model, Cmd.none )
 
 
-updateBallPos : ActiveGame -> ActiveGame
-updateBallPos activeGame =
+updateBallPos : Time -> ActiveGame -> ActiveGame
+updateBallPos timeDiff activeGame =
     { activeGame
-        | ballX = activeGame.ballX + cos activeGame.ballDir * toFloat activeGame.ballSpeed
-        , ballY = activeGame.ballY + sin activeGame.ballDir * toFloat activeGame.ballSpeed
+        | ballX = activeGame.ballX + cos activeGame.ballDir * toFloat activeGame.ballSpeed * (timeDiff / 16)
+        , ballY = activeGame.ballY + sin activeGame.ballDir * toFloat activeGame.ballSpeed * (timeDiff / 16)
     }
 
 
@@ -248,7 +249,7 @@ subscriptions model =
         , onKeyDown KeyDown
         , case model.game of
             Active _ ->
-                Time.every (40 * millisecond) Tick
+                tick Tick
 
             _ ->
                 Sub.none
@@ -281,7 +282,7 @@ view model =
                 , ( "padding", "32px" )
                 ]
             ]
-            [ div [ style [ ( "position", "relative" ), ( "overflow", "hidden"), ("width", "inherit"), ("height", "inherit") ] ]
+            [ div [ style [ ( "position", "relative" ), ( "overflow", "hidden" ), ( "width", "inherit" ), ( "height", "inherit" ) ] ]
                 (case model.game of
                     Active activeGame ->
                         [ viewBouncher Left activeGame.leftY

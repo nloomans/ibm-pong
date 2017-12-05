@@ -7,3 +7,13 @@ const app = Elm.Main.fullscreen({
 window.document.addEventListener('keydown', function (event) {
   app.ports.onKeyDown.send(event.key);
 });
+
+let prevTick = new Date().valueOf();
+
+function tick() {
+  app.ports.tick.send(new Date().valueOf() - prevTick);
+  prevTick = new Date().valueOf();
+  window.requestAnimationFrame(tick);
+}
+
+tick();
