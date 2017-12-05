@@ -49,6 +49,8 @@ type alias Flags =
 
 init : Flags -> ( Model, Cmd Msg )
 init flags =
+    -- We are getting the web socket server url from the javascript side, see
+    -- index.js
     ( Model Pending flags.wsserver, Cmd.none )
 
 
@@ -59,7 +61,11 @@ type WSMsg
     | GameStop
     | Miss
 
-
+-- Turns a WSMsg into an utf8 encoded string that can be send to the server.
+-- Usuage:
+--   encode (BatUpdate 30)
+-- Returns:
+--   A string that should be send to the server.
 encode : WSMsg -> String
 encode wsMsg =
     let
@@ -85,6 +91,12 @@ encode wsMsg =
             |> String.fromList
 
 
+-- Decodes a utf8 encoded string into a WSMsg.
+-- Usuage:
+--   decode "foo" -- Foo is a utf8 encoded string send from the server
+--   (or created using `encode`)
+-- Returns:
+--   A WSMsg, e.g. BatUpdate 30
 decode : String -> WSMsg
 decode string =
     let
@@ -123,6 +135,7 @@ type Msg
     | KeyDown String
 
 
+-- Turns a crazy radian (e.g. -5pi) into something sane (e.g. 1pi)
 sanifyRadians : Float -> Float
 sanifyRadians radians_ =
     if radians_ < 0 then
@@ -141,6 +154,7 @@ update msg model =
             WebSocket.send model.wsserver (encode wsmsg)
     in
         case msg of
+            -- We recieved a msg from the server.
             NewMessage encodedMsg ->
                 let
                     msg =
@@ -153,6 +167,7 @@ update msg model =
                         GameStop ->
                             ( { model | game = Pending }, Cmd.none )
 
+                        -- The bat pos of the other player changed.
                         BatUpdate rightY ->
                             case model.game of
                                 Active activeGame ->
@@ -166,6 +181,8 @@ update msg model =
                                 _ ->
                                     ( model, Cmd.none )
 
+                        -- The position of the ball changes, this is send when
+                        -- the other player hit the ball with his bat.
                         BallUpdate x y dir speed ->
                             case model.game of
                                 Active activeGame ->
@@ -186,9 +203,11 @@ update msg model =
                                 _ ->
                                     ( model, Cmd.none )
 
+                        -- The other player missed the bat, we have won.
                         Miss ->
                             ( { model | game = GameOver True }, Cmd.none )
 
+            -- This function is before a frame is drawn.
             Tick timeDiff ->
                 case model.game of
                     Active activeGame ->
@@ -208,10 +227,12 @@ update msg model =
                             else
                                 -- The ball did not hit the bat
                                 ( { model | game = GameOver False }, send Miss )
+                        -- Just some wall bounching.
                         else if activeGame.ballY < 10 || activeGame.ballY > (450 - 10) then
                             ( { model | game = Active (updateBallPos timeDiff { activeGame | ballDir = tau - activeGame.ballDir }) }
                             , Cmd.none
                             )
+                        -- Nothing special happend, just update the ball pos.
                         else
                             ( { model | game = Active (updateBallPos timeDiff activeGame) }
                             , Cmd.none
@@ -224,16 +245,19 @@ update msg model =
                 case model.game of
                     Active activeGame ->
                         if msg == "ArrowUp" then
+                        -- Move the bat up, and tell the server that our bat has been moved.
                             ( { model | game = Active { activeGame | leftY = activeGame.leftY - 60 } }, send (BatUpdate (activeGame.leftY - 60)) )
+                        -- Move the bat down, and tell the server that our bat has been moved.
                         else if msg == "ArrowDown" then
                             ( { model | game = Active { activeGame | leftY = activeGame.leftY + 60 } }, send (BatUpdate (activeGame.leftY + 60)) )
                         else
-                            ( { model | game = Active activeGame }, Cmd.none )
+                            ( model, Cmd.none )
 
                     _ ->
                         ( model, Cmd.none )
 
 
+-- Move the ball to his position in the next point in time.
 updateBallPos : Time -> ActiveGame -> ActiveGame
 updateBallPos timeDiff activeGame =
     { activeGame
