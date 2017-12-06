@@ -373,10 +373,7 @@ viewBouncher side y =
         [ style
             [ ( "width", "20px" )
             , ( "height", "100px" )
-            , if side == Left then
-                ( "background-color", "blue" )
-              else
-                ( "background-color", "red" )
+            , ( "background-color", "green" )
             , ( "top", toString (y - 50) ++ "px" )
             , if side == Left then
                 ( "left", "0px" )
